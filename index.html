@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+        <title>Interactive Map</title>
+        <style>
+            body {
+                margin: 0;
+                touch-action: none;
+            }
+            canvas {
+                display: block;
+            }
+            .country_name {
+                position: fixed;
+                bottom: 10%;
+                left: 10%;
+                font-size: 4rem;
+                color: white;
+                user-select: none;
+                text-shadow: -1px 1px 0 #000, 1px 1px 0 #000, 1px -1px 0 #000, -1px -1px 0 #000;
+                font-family: 'Roboto', sans-serif;
+            }
+        </style>
+        <script src="https://cdn.jsdelivr.net/npm/three@0.115.0/build/three.min.js" integrity="sha256-BKLpj/JlS+Fk4HENt+eiU5TifNz5GsSAl3KpXe80Lxc=" crossorigin="anonymous"></script>
+        <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8/hammer.min.js" integrity="sha256-eVNjHw5UeU0jUqPPpZHAkU1z4U+QFBBY488WvueTm88=" crossorigin="anonymous"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/topojson/3.0.2/topojson.min.js" integrity="sha256-tHoAPGoNdhIR28YHl9DWLzeRfdwigkH7OCBXMrHXhoM=" crossorigin="anonymous"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.0/anime.min.js" integrity="sha256-hBMojZuWKocCflyaG8T19KBq9OlTlK39CTxb8AUWKhY=" crossorigin="anonymous"></script>        
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/dat-gui/0.7.7/dat.gui.min.js" integrity="sha256-8IvN8DiAvwO7J3WLqoRDg2/XfkOxcB0urCTU4x0kBOM=" crossorigin="anonymous"></script>
+        <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@500&display=swap" rel="stylesheet">
+        <script src="Country.js"></script>
+        <script id="vertexShader" type="x-shader/x-vertex">     
+            attribute vec3 center;   
+            varying vec4 v_position;
+            varying vec2 v_dist_from_o;
+            varying vec3 v_center;
+            uniform float time;
+            void main()	{            
+                vec4 mvPosition = modelViewMatrix * vec4( position, 1.0 );
+                v_position = vec4( position, 1.0 );
+                v_dist_from_o = abs(v_position.xy);                
+                v_center = center;
+                gl_Position = projectionMatrix * mvPosition;
+            }
+        </script>
+    
+       <script id="stateShader" type="x-shader/x-fragment">
+          uniform float time;
+          uniform vec2 resolution;
+          varying vec4 v_position;
+          varying vec2 v_dist_from_o;
+          varying vec3 v_center;
+    
+          void main( void ) {         
+            vec2 position = - 1.0 + 2.0 * gl_FragCoord.xy / resolution.xy;         
+            float red   = abs( sin( (v_dist_from_o.y * position.y * .1) + ( v_dist_from_o.x * position.x * .1 ) + time * .2));            
+            float green = abs( sin( position.y + time * .2 / 5.0 ) );
+            float blue  = abs( sin( position.x + time * .2 / 4.0 ) );         
+    
+            gl_FragColor = vec4( red, green, blue, 1.0 );
+          }          
+       </script>
+       <script id="lineShader" type="x-shader/x-fragment">
+        void main( void ) {         
+           gl_FragColor = vec4( .2, .2, .2, 1.0 );
+        }          
+     </script>
+    </head>
+    <body>
+        <div class="country_name"></div>
+
+        <script>
+            let scene = new THREE.Scene();            
+            let camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000); 
+            let isShaderOn = false;           
+            let renderer = new THREE.WebGLRenderer();
+            let uniforms = {
+                        time: { type: "f", value: .1 },
+                        resolution: { type: "v2", value: new THREE.Vector2() },
+                        currentPos: { type: "v3", value: new THREE.Vector3() }
+                    };      
+            let startTime = Date.now();
+            let cameraUpdatePos = new THREE.Vector3(0, 45, 200);
+            
+            let raycastObjs = [];
+            let lineObjs = [];
+
+            
+            init();
+            setupEventListeners();
+            createGUI();
+            animate();
+
+
+            function init() {
+                scene.background = new THREE.Color(0x222222);
+
+                renderer.setSize(window.innerWidth, window.innerHeight);
+                document.body.appendChild(renderer.domElement); 
+                
+                fetch("world_map_web_merc.json").then((response) => {
+                    return response.json();
+                }).then((topology) => {
+                    let features = topojson.feature(topology, topology.objects.world_map);
+                    console.log(features);
+                    console.log(topojson.bbox(topology));
+
+                    for (const feature of features.features) {
+                        let country = new Country(feature.geometry, feature.properties);                        
+                        let shape = country.createShape();
+                        let line = country.createLine();
+                        raycastObjs.push(shape);
+                        lineObjs.push(line);
+
+                        // Workaround due to South Africa not having proper hole rendering
+                        if (country.properties.NAME === "Lesotho") {
+                            shape.position.z = .1;
+                            line.position.z = .1;
+                        }
+                        
+                        scene.add(shape);
+                        scene.add(line);
+                    }
+                    uniforms.resolution.value.x = window.innerWidth;
+                    uniforms.resolution.value.y = window.innerHeight;                    
+                });
+            }
+
+
+            function animate() {
+                requestAnimationFrame(animate);
+                let elapsedMilliseconds = Date.now() - startTime;
+                let elapsedSeconds = elapsedMilliseconds / 1000.;
+                uniforms.time.value = 60. * elapsedSeconds/10;
+                
+                camera.position.x = cameraUpdatePos.x;                
+                camera.position.y = cameraUpdatePos.y;
+                camera.position.z = cameraUpdatePos.z;
+                
+                renderer.render(scene, camera);
+            }
+
+
+            function setupEventListeners() {
+                let raycaster = new THREE.Raycaster();
+                let mouse = new THREE.Vector2();
+                let INTERSECTED = null;
+                let CLICKED = null;
+
+                document.addEventListener("click", onDocumentClick, false);
+                function onDocumentClick(event) {                                                        
+                    mouse.x = (event.clientX / renderer.domElement.clientWidth) * 2 - 1;
+                    mouse.y = -(event.clientY / renderer.domElement.clientHeight) * 2 + 1;
+                    raycaster.setFromCamera(mouse, camera);
+
+                    let intersects = raycaster.intersectObjects(raycastObjs);
+
+                    if(isShaderOn) {
+                        if (intersects.length > 0)
+                            document.querySelector(".country_name").innerText = intersects[0].object.userData.properties.NAME;
+                        else
+                            document.querySelector(".country_name").innerText = "";
+                    }
+                    else {
+                        if (intersects.length > 0) {
+
+                            if (CLICKED) {
+                                CLICKED.material.color.set(CLICKED.userData.shapeColor);
+                            }
+
+                            CLICKED = intersects[0].object;
+                            CLICKED.material.color.set(0x164B91);
+
+                            document.querySelector(".country_name").innerText = CLICKED.userData.properties.NAME;
+
+                            } else {
+
+                            if (CLICKED) {
+                                CLICKED.material.color.set(CLICKED.userData.shapeColor);
+                                document.querySelector(".country_name").innerText = "";
+                            }
+
+                            CLICKED = null;
+                        }
+                    }
+                }
+
+
+                document.addEventListener("wheel", onDocumentMouseWheel, false);
+                function onDocumentMouseWheel(event) {
+                    let direction = Math.sign(event.deltaY);
+                    let moveToZ = camera.position.z + (direction * 40);
+                    moveToZ = THREE.MathUtils.clamp(moveToZ, 30, 200);
+
+                    anime({
+                        targets: cameraUpdatePos,
+                        z: moveToZ,
+                        duration: 500,
+                        easing: "easeOutQuad"
+                    })
+                }
+
+                document.addEventListener("mousemove", onMouseMove, false);
+                function onMouseMove(event) {
+                    event.preventDefault();                    
+
+                    mouse.x = (event.clientX / renderer.domElement.clientWidth) * 2 - 1;
+                    mouse.y = -(event.clientY / renderer.domElement.clientHeight) * 2 + 1;
+
+                    if(isShaderOn)
+                        return;
+
+                    raycaster.setFromCamera(mouse, camera);
+
+                    let intersects = raycaster.intersectObjects(raycastObjs);
+
+                    if (intersects.length > 0) {
+                        if (INTERSECTED && INTERSECTED != CLICKED) {
+                            INTERSECTED.material.color.set(INTERSECTED.userData.shapeColor);
+                        }
+
+                        INTERSECTED = intersects[0].object;
+
+                        if (INTERSECTED != CLICKED) {
+                            INTERSECTED.material.color.setHex(0x666666);
+                        }
+
+                    } else {
+                        if (INTERSECTED && INTERSECTED != CLICKED) {
+                            INTERSECTED.material.color.set(INTERSECTED.userData.shapeColor);
+                        }
+                    } 
+                }
+
+                let hammertime = new Hammer(window);
+                let lastScale = 1;
+                let zoomOffset = new THREE.Vector3(0,0,0);
+                hammertime.get('pinch').set({ enable: true });
+                hammertime.on("pinchstart pinchin pinchout pinchend", function(ev) {
+                    console.log(ev.center)
+                    let moveToZ = camera.position.z;
+                    
+                    if (ev.scale < lastScale) {
+                        moveToZ += 1 * (1/ev.scale);
+                    } else if (ev.scale > lastScale) {
+                        moveToZ -= 1 * ev.scale;
+                    }
+                    lastScale = ev.scale;
+
+                    if(ev.type === "pinchend") {                        
+                        lastScale = 1;
+                    }    
+
+                    cameraUpdatePos.z = THREE.MathUtils.clamp(moveToZ, 30, 200);;
+                });
+
+                
+
+                let startPos = new THREE.Vector3();
+                let currentPos = new THREE.Vector3(); 
+                let delta = new THREE.Vector3();
+                hammertime.on("panstart panmove", function(ev) {
+                    if(ev.type === "panstart") {                        
+                        startPos.set( 
+                            (ev.srcEvent.clientX / window.innerWidth) * 2 - 1, 
+                            -(ev.srcEvent.clientY / window.innerHeight) * 2 + 1, 
+                            0.5 
+                        );
+
+                        startPos.unproject( camera );
+                        startPos.sub(camera.position).normalize();                        
+                        let distance = - camera.position.z / startPos.z;
+                        startPos.multiplyScalar( distance )
+                        
+                        startPos.x += cameraUpdatePos.x;
+                        startPos.y += cameraUpdatePos.y;
+                    }
+
+                    if (ev.type === "panmove") 
+                    {                    
+                        currentPos.set( 
+                            (ev.srcEvent.clientX / window.innerWidth) * 2 - 1, 
+                            -(ev.srcEvent.clientY / window.innerHeight) * 2 + 1, 
+                            0.5 
+                        );         
+                        
+
+                        currentPos.unproject( camera );
+                        currentPos.sub(camera.position).normalize();
+                        let distance = - camera.position.z / currentPos.z;
+                        currentPos.multiplyScalar( distance );
+                        
+                        delta.subVectors(startPos, currentPos);                                                 
+
+                        cameraUpdatePos.x = THREE.MathUtils.clamp(delta.x, -200, 200);
+                        cameraUpdatePos.y = THREE.MathUtils.clamp(delta.y, -50, 140); //Y clamp is strange because Antartica has been removed, but the coordinates stated the same
+                    }
+                });
+
+                window.addEventListener("resize", onWindowResize, false);
+                function onWindowResize() {
+                    camera.aspect = window.innerWidth / window.innerHeight;
+                    camera.updateProjectionMatrix();
+
+                    renderer.setSize(window.innerWidth, window.innerHeight);
+                }
+            }
+
+            function createGUI() {
+                let Test = {
+                    stagger: function (zPosition) {
+                        let staggerObjs = raycastObjs.map((obj) => {
+                            return obj.position
+                        });
+                        let staggerLines = lineObjs.map((obj) => {
+                            return obj.position
+                        });
+
+                        anime({targets: staggerObjs, z: zPosition, delay: anime.stagger(25), easing: "easeInQuad"})
+
+                        anime({targets: staggerLines, z: zPosition, delay: anime.stagger(25), easing: "easeOutQuad"})
+                    },
+                    staggerIn: function () {
+                        this.stagger(0);
+                    },
+                    staggerOut: function () {
+                        this.stagger(300);
+                    },
+                    randomColors: function () {                        
+                        for(const shape of raycastObjs) {
+                            let color = Math.random() * 0xffffff;
+                            if(isShaderOn) 
+                                shape.material = new THREE.MeshBasicMaterial({color: color});
+                            shape.material.color.set(color); 
+                            shape.userData.shapeColor = color;
+                        }
+                        for(const line of lineObjs) {
+                            let color = Math.random() * 0xffffff;
+                            if(isShaderOn) 
+                                line.material = new THREE.LineBasicMaterial({color: color});
+
+                            line.material.color.set(color);                            
+                            line.userData.lineColor = color;
+                        }
+                        scene.background.set(Math.random() * 0xffffff);
+                        isShaderOn = false;
+                    },
+                    neonMap: function () {                        
+                        for(const shape of raycastObjs) {
+                            let color = 0x000000;
+                            if(isShaderOn) 
+                                shape.material = new THREE.MeshBasicMaterial({color: color});
+                            shape.material.color.set(color); 
+                            shape.userData.shapeColor = color;
+                        }
+                        for(const line of lineObjs) {
+                            let color = Math.random() * 0xffffff;
+                            if(isShaderOn) 
+                                line.material = new THREE.LineBasicMaterial({color: color});
+
+                            line.material.color.set(color);                            
+                            line.userData.lineColor = color;
+                        }
+                        scene.background.set(0x000000);
+                        isShaderOn = false;
+                    },
+                    turnShaderOn: function() {
+                        isShaderOn = true;
+                        for(const shape of raycastObjs) {                            
+                            let box = shape.geometry.computeBoundingBox();
+                            let center = new THREE.Vector3();
+                            shape.geometry.boundingBox.getCenter(center);
+                            let centerArray = []
+                            center.toArray(centerArray);
+                            shape.geometry.setAttribute( 'center', new THREE.Float32BufferAttribute( centerArray, 3 ) );
+
+                            shape.material = new THREE.ShaderMaterial({
+                                uniforms: uniforms,
+                                vertexShader: document.getElementById('vertexShader').textContent,
+                                fragmentShader: document.getElementById('stateShader').textContent
+                            });
+                        }
+
+                        for(const line of lineObjs) {                            
+                            line.material = new THREE.ShaderMaterial({
+                                uniforms: uniforms,
+                                vertexShader: document.getElementById('vertexShader').textContent,
+                                fragmentShader: document.getElementById('lineShader').textContent
+                            });
+                        }             
+                                    
+                    },
+                    backgroundColor: "#" + scene.background.getHexString(),
+                    shapeColor: "#000000",
+                    lineColor: "#ff0000"
+
+                }
+                let gui = new dat.GUI();
+                gui.width = 265;
+                let folder1 = gui.addFolder("Test Animations");
+                folder1.add(Test, "staggerIn").name("Stagger In");
+                folder1.add(Test, "staggerOut").name("Stagger Out");
+                
+                let folder2 = gui.addFolder("Color Settings");
+                folder2.addColor(Test, "backgroundColor")
+                    .name("Background Color")
+                    .onChange(() => {                        
+                        scene.background = new THREE.Color(Test.backgroundColor);
+                    });
+                folder2.addColor(Test, "shapeColor")
+                    .name("Shape Color")
+                    .onChange(() => {         
+                        if(isShaderOn) return;               
+                        for(const shape of raycastObjs) {
+                            shape.material.color.set(Test.shapeColor);                            
+                            shape.userData.shapeColor = Test.shapeColor;
+                        }
+                    });
+                folder2.addColor(Test, "lineColor")
+                    .name("Line Color")
+                    .onChange(() => {
+                        if(isShaderOn) return;                        
+                        for(const shape of lineObjs) {
+                            shape.material.color.set(Test.lineColor);                            
+                            shape.userData.lineColor = Test.lineColor;
+                        }
+                    });
+                folder2.add(Test, "randomColors").name("Random Colors");  
+                folder2.add(Test, "neonMap").name("Neon Map");                
+                folder2.add(Test, "turnShaderOn").name("Shader Test");
+                folder1.open();
+                folder2.open();
+            }
+        </script>
+    </body>
+</html>
