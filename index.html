@@ -4,31 +4,14 @@
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
         <title>Interactive Map</title>
-        <style>
-            body {
-                margin: 0;
-                touch-action: none;
-            }
-            canvas {
-                display: block;
-            }
-            .country_name {
-                position: fixed;
-                bottom: 10%;
-                left: 10%;
-                font-size: 4rem;
-                color: white;
-                user-select: none;
-                text-shadow: -1px 1px 0 #000, 1px 1px 0 #000, 1px -1px 0 #000, -1px -1px 0 #000;
-                font-family: 'Roboto', sans-serif;
-            }
-        </style>
         <script src="https://cdn.jsdelivr.net/npm/three@0.115.0/build/three.min.js" integrity="sha256-BKLpj/JlS+Fk4HENt+eiU5TifNz5GsSAl3KpXe80Lxc=" crossorigin="anonymous"></script>
         <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8/hammer.min.js" integrity="sha256-eVNjHw5UeU0jUqPPpZHAkU1z4U+QFBBY488WvueTm88=" crossorigin="anonymous"></script>
         <script src="https://cdnjs.cloudflare.com/ajax/libs/topojson/3.0.2/topojson.min.js" integrity="sha256-tHoAPGoNdhIR28YHl9DWLzeRfdwigkH7OCBXMrHXhoM=" crossorigin="anonymous"></script>
         <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.0/anime.min.js" integrity="sha256-hBMojZuWKocCflyaG8T19KBq9OlTlK39CTxb8AUWKhY=" crossorigin="anonymous"></script>        
         <script src="https://cdnjs.cloudflare.com/ajax/libs/dat-gui/0.7.7/dat.gui.min.js" integrity="sha256-8IvN8DiAvwO7J3WLqoRDg2/XfkOxcB0urCTU4x0kBOM=" crossorigin="anonymous"></script>
+        <script src="https://cdn.jsdelivr.net/npm/proj4@2.6.1/dist/proj4-src.min.js"></script>
         <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@500&display=swap" rel="stylesheet">
+        <link href="main.css" rel="stylesheet">
         <script src="Country.js"></script>
         <script id="vertexShader" type="x-shader/x-vertex">     
             attribute vec3 center;   
@@ -68,7 +51,9 @@
      </script>
     </head>
     <body>
-        <div class="country_name"></div>
+        <div class="overlay country_name"></div>
+        <div class="overlay last_upadted">Last Updated: April 20, 2020</div>
+        <div class="overlay mouse_coordinates">Last Updated: April 20, 2020</div>
 
         <script>
             let scene = new THREE.Scene();            
@@ -83,8 +68,14 @@
             let startTime = Date.now();
             let cameraUpdatePos = new THREE.Vector3(0, 45, 200);
             
+            let firstProjection = "+proj=merc +a=55 +b=55 +lat_ts=0.0 +lon_0=0.0 +x_0=0.0 +y_0=0 +k=1.0 +units=m +nadgrids=@null +wktext  +no_defs";
+            let secondProjection = "+proj=merc +a=55 +b=55 +lat_ts=0.0 +lon_0=0.0 +x_0=0.0 +y_0=0 +k=1.0 +units=m +nadgrids=@null +wktext  +no_defs";
+
+            let proj = proj4(firstProjection,secondProjection);
+            
             let raycastObjs = [];
             let lineObjs = [];
+            let covid_data = {};
 
             
             init();
@@ -99,7 +90,7 @@
                 renderer.setSize(window.innerWidth, window.innerHeight);
                 document.body.appendChild(renderer.domElement); 
                 
-                fetch("world_map_web_merc.json").then((response) => {
+                fetch("world_map_detailed.json").then((response) => {
                     return response.json();
                 }).then((topology) => {
                     let features = topojson.feature(topology, topology.objects.world_map);
@@ -124,6 +115,34 @@
                     }
                     uniforms.resolution.value.x = window.innerWidth;
                     uniforms.resolution.value.y = window.innerHeight;                    
+                });
+
+                fetch("covid_data.json").then((response) => {
+                    return response.json();
+                }).then((data) => {
+                    covid_data = data;
+
+                    for (const country of data){
+                        //if(country["Country/Region"] === "US"){
+                            const geometry = new THREE.BoxGeometry(.5,.5,.5);
+                            let mat = new THREE.MeshBasicMaterial({color: 0x0000FF});    
+                            let mesh = new THREE.Mesh( geometry, mat ) ;
+
+                            //console.log(country)
+                            //console.log("country log lat", country.Long, country.Lat);
+                            let pos = proj.inverse({x: country.Long, y: country.Lat});
+                            //console.log("pos", pos);
+                            mesh.position.x = pos.x;
+                            mesh.position.y = pos.y;
+                            mesh.userData = country;
+                            //console.log(mesh.position)
+                            raycastObjs.push(mesh);
+                            scene.add(mesh);
+                        //}
+
+
+                        //console.log(country["Country/Region"])
+                    }
                 });
             }
 
@@ -172,7 +191,11 @@
                             CLICKED = intersects[0].object;
                             CLICKED.material.color.set(0x164B91);
 
-                            document.querySelector(".country_name").innerText = CLICKED.userData.properties.NAME;
+                            if(CLICKED.userData.properties) {
+                                document.querySelector(".country_name").innerText = CLICKED.userData.properties.NAME;
+                            }
+                            
+                            console.log(CLICKED.userData)
 
                             } else {
 
@@ -201,6 +224,7 @@
                     })
                 }
 
+                
                 document.addEventListener("mousemove", onMouseMove, false);
                 function onMouseMove(event) {
                     event.preventDefault();                    
@@ -208,10 +232,34 @@
                     mouse.x = (event.clientX / renderer.domElement.clientWidth) * 2 - 1;
                     mouse.y = -(event.clientY / renderer.domElement.clientHeight) * 2 + 1;
 
+                    let mouseVec = new THREE.Vector3();
+                    mouseVec.set( 
+                            (event.clientX / window.innerWidth) * 2 - 1, 
+                            -(event.clientY / window.innerHeight) * 2 + 1, 
+                            0.5 
+                        );
+
+                        mouseVec.unproject( camera );
+                        mouseVec.sub(camera.position).normalize();                        
+                        let distance = - camera.position.z / mouseVec.z;
+                        mouseVec.multiplyScalar( distance )                    
+
+
+
                     if(isShaderOn)
                         return;
 
                     raycaster.setFromCamera(mouse, camera);
+
+                    let divCoords = document.querySelector(".mouse_coordinates");
+                    let projCoords = proj.forward({x:mouseVec.x, y:mouseVec.y});
+                    let testInverse = proj.inverse({x:projCoords.x, y:projCoords.y});
+                    divCoords.innerText = `Client Coords: ${event.clientX}, ${event.clientY}
+                    Clip Space Coords: ${mouse.x}, ${mouse.y}
+                    World Coords : ${mouseVec.x}, ${mouseVec.y}
+                    projCoords: ${projCoords.x}, ${projCoords.y}
+                    testInverse: ${testInverse.x}, ${testInverse.y}
+                    `;
 
                     let intersects = raycaster.intersectObjects(raycastObjs);
 

@@ -1,0 +1,33 @@
+body {
+    margin: 0;
+    touch-action: none;
+    font-family: 'Roboto', sans-serif;
+    text-shadow: -1px 1px 0 #000, 1px 1px 0 #000, 1px -1px 0 #000, -1px -1px 0 #000;
+}
+canvas {
+    display: block;
+}
+
+.overlay {
+    position: fixed;
+    user-select: none;
+}
+.country_name {    
+    bottom: 10%;
+    left: 10%;
+    font-size: 4rem;
+    color: white;
+}
+.last_upadted {
+    font-size: 1rem;
+    color: white;
+    bottom: 1%;
+    right: 1%;
+}
+
+.mouse_coordinates {
+    font-size: 1rem;
+    color: white;
+    bottom: 1%;
+    left: 1%;
+}
