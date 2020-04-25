@@ -1,10 +1,13 @@
 body {
     margin: 0;
+    height: 100%;
     touch-action: none;
     font-family: 'Roboto', sans-serif;
     text-shadow: -1px 1px 0 #000, 1px 1px 0 #000, 1px -1px 0 #000, -1px -1px 0 #000;
 }
 canvas {
+    width: 100%;
+    height: 100%;
     display: block;
 }
 
@@ -30,4 +33,17 @@ canvas {
     color: white;
     bottom: 1%;
     left: 1%;
+}
+
+.slider {
+    -webkit-appearance: none;
+    width: 90%;
+    height: 25px;
+    background: #d3d3d3;
+    outline: none;
+    opacity: 0.7;
+    -webkit-transition: .2s;
+    transition: opacity .2s;
+    bottom: 2%;
+    left: 5%;
 }

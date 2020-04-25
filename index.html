@@ -50,16 +50,21 @@
         }          
      </script>
     </head>
-    <body>
+    <body>        
+        <canvas id="mainCanvas"></canvas>
         <div class="overlay country_name"></div>
+        
+        <input type="range" id="dateSlider" value="0" class="overlay slider">
         <div class="overlay last_upadted">Last Updated: April 20, 2020</div>
-        <div class="overlay mouse_coordinates">Last Updated: April 20, 2020</div>
+        <div class="overlay mouse_coordinates" style="display: none;"></div>
 
         <script>
+            let slider = document.querySelector("#dateSlider");
+            let canvas = document.querySelector("#mainCanvas");
             let scene = new THREE.Scene();            
             let camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000); 
             let isShaderOn = false;           
-            let renderer = new THREE.WebGLRenderer();
+            let renderer = new THREE.WebGLRenderer({canvas});
             let uniforms = {
                         time: { type: "f", value: .1 },
                         resolution: { type: "v2", value: new THREE.Vector2() },
@@ -69,7 +74,7 @@
             let cameraUpdatePos = new THREE.Vector3(0, 45, 200);
             
             let firstProjection = "+proj=merc +a=55 +b=55 +lat_ts=0.0 +lon_0=0.0 +x_0=0.0 +y_0=0 +k=1.0 +units=m +nadgrids=@null +wktext  +no_defs";
-            let secondProjection = "+proj=merc +a=55 +b=55 +lat_ts=0.0 +lon_0=0.0 +x_0=0.0 +y_0=0 +k=1.0 +units=m +nadgrids=@null +wktext  +no_defs";
+            let secondProjection = "+proj=longlat +a=55 +b=55 +lat_ts=0.0 +lon_0=0.0 +x_0=0.0 +y_0=0 +k=1.0 +units=m +nadgrids=@null +wktext  +no_defs";
 
             let proj = proj4(firstProjection,secondProjection);
             
@@ -88,7 +93,9 @@
                 scene.background = new THREE.Color(0x222222);
 
                 renderer.setSize(window.innerWidth, window.innerHeight);
-                document.body.appendChild(renderer.domElement); 
+                //mainCanvas = renderer.domElement;
+                //c.appendChild(renderer.domElement);
+                canvas = renderer.domElement;
                 
                 fetch("world_map_detailed.json").then((response) => {
                     return response.json();
@@ -105,7 +112,7 @@
                         lineObjs.push(line);
 
                         // Workaround due to South Africa not having proper hole rendering
-                        if (country.properties.NAME === "Lesotho") {
+                        if (country.properties.NAME === "Lesotho" || country.properties.NAME === "Baikonur") {
                             shape.position.z = .1;
                             line.position.z = .1;
                         }
@@ -167,7 +174,7 @@
                 let INTERSECTED = null;
                 let CLICKED = null;
 
-                document.addEventListener("click", onDocumentClick, false);
+                canvas.addEventListener("click", onDocumentClick, false);
                 function onDocumentClick(event) {                                                        
                     mouse.x = (event.clientX / renderer.domElement.clientWidth) * 2 - 1;
                     mouse.y = -(event.clientY / renderer.domElement.clientHeight) * 2 + 1;
@@ -210,7 +217,7 @@
                 }
 
 
-                document.addEventListener("wheel", onDocumentMouseWheel, false);
+                canvas.addEventListener("wheel", onDocumentMouseWheel, false);
                 function onDocumentMouseWheel(event) {
                     let direction = Math.sign(event.deltaY);
                     let moveToZ = camera.position.z + (direction * 40);
@@ -225,7 +232,7 @@
                 }
 
                 
-                document.addEventListener("mousemove", onMouseMove, false);
+                canvas.addEventListener("mousemove", onMouseMove, false);
                 function onMouseMove(event) {
                     event.preventDefault();                    
 
@@ -281,7 +288,7 @@
                     } 
                 }
 
-                let hammertime = new Hammer(window);
+                let hammertime = new Hammer(canvas);
                 let lastScale = 1;
                 let zoomOffset = new THREE.Vector3(0,0,0);
                 hammertime.get('pinch').set({ enable: true });
@@ -352,6 +359,11 @@
                     camera.updateProjectionMatrix();
 
                     renderer.setSize(window.innerWidth, window.innerHeight);
+                }
+
+                slider.addEventListener("mousemove", onSliderMove, false);
+                function onSliderMove(event) {
+                    
                 }
             }
 
