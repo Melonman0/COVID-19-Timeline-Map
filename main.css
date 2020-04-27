@@ -16,14 +16,14 @@ canvas {
     user-select: none;
 }
 .country_name {    
-    bottom: 20%;
-    left: 10%;
-    font-size: 4rem;
+    bottom: 22%;
+    left: 5%;
+    font-size: 1.2rem;
     color: white;
 }
 
 .date {    
-    font-size: 25px;
+    font-size: 15px;
     color: white;
     margin-bottom: 5px;
     text-align: center;
