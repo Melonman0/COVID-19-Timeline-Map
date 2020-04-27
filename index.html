@@ -87,6 +87,8 @@
             let raycastObjs = [];
             let lineObjs = [];
             let covid_data = {};
+            let obj = [];
+            let selectedDate = new Date(FIRST_DATA_DATE);
 
             
             init();
@@ -137,22 +139,13 @@
 
                     for (const country of data){
                         //if(country["Country/Region"] === "US"){
-                            const geometry = new THREE.CircleGeometry(.5, 32);
-                            let mat = new THREE.MeshBasicMaterial({color: 0xFF0000, transparent: true, opacity: 0.4 });    
-                            let mesh = new THREE.Mesh( geometry, mat ) ;
+                            //console.log(country);
+                            let covidData = new CovidData(country);
+                            //console.log(covidData);
 
-                            //console.log(country)
-                            //console.log("country log lat", country.Long, country.Lat);
-                            let pos = proj.inverse({x: country.Long, y: country.Lat});
-                            //console.log("pos", pos);
-                            mesh.position.x = pos.x;
-                            mesh.position.y = pos.y;
-                            mesh.position.z = .1;
-                            //mesh.scale.set(10,10,1);
-                            mesh.userData = country;
-                            //console.log(mesh.position)
-                            raycastObjs.push(mesh);
-                            scene.add(mesh);
+                            obj.push(covidData);
+                            raycastObjs.push(covidData.mesh);
+                            scene.add(covidData.mesh);
                         //}
 
 
@@ -166,7 +159,7 @@
                         max: LAST_DATA_DATE.getTime()
                     },
                     start: FIRST_DATA_DATE.getTime(),
-                    step: 24 * 60 * 60 * 1000,
+                    // step: 24 * 60 * 60 * 1000,
                     format: wNumb({
                         decimals: 0
                     }),
@@ -189,7 +182,16 @@
                 slider.noUiSlider.on("update", (value) =>{
                     //console.log(new Date(parseInt(value)));
                     //console.log(new Date(this.get()));
-                    document.querySelector(".date").innerText = new Date(parseInt(value)).toLocaleDateString("en", ({ month:"long", day:"numeric", year: "numeric"}));
+                    let dateSelected = new Date(parseInt(value));
+                    document.querySelector(".date").innerText = dateSelected.toLocaleDateString("en", ({ month:"long", day:"numeric", year: "numeric"}));
+                    
+                    selectedDate = dateSelected.toLocaleDateString("en", ({ month:"numeric", day:"numeric", year: "2-digit"}));
+                    //for(const data of obj) {
+                        //if(data.data["Country/Region"] === "US"){
+                            //data.updateScale(dateSelected.toLocaleDateString("en"))
+                        //}
+                        
+                    //}
                 });
             }
 
@@ -203,6 +205,13 @@
                 camera.position.x = cameraUpdatePos.x;                
                 camera.position.y = cameraUpdatePos.y;
                 camera.position.z = cameraUpdatePos.z;
+
+                for(const data of obj) {
+                    //if(data.data["Country/Region"] === "US"){
+                        data.updateScale(selectedDate);
+                        data.updateCircle();
+                    //}                        
+                }
                 
                 renderer.render(scene, camera);
             }
