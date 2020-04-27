@@ -16,60 +16,22 @@
         <link href="https://cdn.jsdelivr.net/npm/nouislider@14.2.0/distribute/nouislider.min.css" rel="stylesheet">
         <link href="main.css" rel="stylesheet">
         <script src="Country.js"></script>
-        <script src="CovidData.js"></script>
-        <script id="vertexShader" type="x-shader/x-vertex">     
-            attribute vec3 center;   
-            varying vec4 v_position;
-            varying vec2 v_dist_from_o;
-            varying vec3 v_center;
-            uniform float time;
-            void main()	{            
-                vec4 mvPosition = modelViewMatrix * vec4( position, 1.0 );
-                v_position = vec4( position, 1.0 );
-                v_dist_from_o = abs(v_position.xy);                
-                v_center = center;
-                gl_Position = projectionMatrix * mvPosition;
-            }
-        </script>
-    
-       <script id="stateShader" type="x-shader/x-fragment">
-          uniform float time;
-          uniform vec2 resolution;
-          varying vec4 v_position;
-          varying vec2 v_dist_from_o;
-          varying vec3 v_center;
-    
-          void main( void ) {         
-            vec2 position = - 1.0 + 2.0 * gl_FragCoord.xy / resolution.xy;         
-            float red   = abs( sin( (v_dist_from_o.y * position.y * .1) + ( v_dist_from_o.x * position.x * .1 ) + time * .2));            
-            float green = abs( sin( position.y + time * .2 / 5.0 ) );
-            float blue  = abs( sin( position.x + time * .2 / 4.0 ) );         
-    
-            gl_FragColor = vec4( red, green, blue, 1.0 );
-          }          
-       </script>
-       <script id="lineShader" type="x-shader/x-fragment">
-        void main( void ) {         
-           gl_FragColor = vec4( .2, .2, .2, 1.0 );
-        }          
-     </script>
+        <script src="CovidData.js"></script>        
     </head>
     <body>        
         <canvas id="mainCanvas"></canvas>
         <div class="overlay country_name"></div>
-        <div class="overlay date"></div>
-        
-        <!-- <input type="range" id="dateSlider" value="0" class="overlay slider"> -->
-        <div id="dateSlider" class="overlay slider"></div>
-        <div class="overlay last_upadted">Last Updated: April 20, 2020</div>
+        <div class="overlay bottomGUI">
+            <div class="date"></div>        
+            <div id="dateSlider" class="slider"></div>
+        </div>        
         <div class="overlay mouse_coordinates" style="display: none;"></div>
 
         <script>
             let slider = document.querySelector("#dateSlider");
             let canvas = document.querySelector("#mainCanvas");
             let scene = new THREE.Scene();            
-            let camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000); 
-            let isShaderOn = false;           
+            let camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);             
             let renderer = new THREE.WebGLRenderer({canvas});
             let uniforms = {
                         time: { type: "f", value: .1 },
@@ -78,6 +40,7 @@
                     };      
             let startTime = Date.now();
             let cameraUpdatePos = new THREE.Vector3(0, 45, 200);
+            let numberformatter = wNumb({ thousand: ',' });
             
             let firstProjection = "+proj=merc +a=55 +b=55 +lat_ts=0.0 +lon_0=0.0 +x_0=0.0 +y_0=0 +k=1.0 +units=m +nadgrids=@null +wktext  +no_defs";
             let secondProjection = "+proj=longlat +a=55 +b=55 +lat_ts=0.0 +lon_0=0.0 +x_0=0.0 +y_0=0 +k=1.0 +units=m +nadgrids=@null +wktext  +no_defs";
@@ -88,7 +51,7 @@
             let lineObjs = [];
             let covid_data = {};
             let obj = [];
-            let selectedDate = new Date(FIRST_DATA_DATE);
+            let SELECTED = null;
 
             
             init();
@@ -99,13 +62,10 @@
 
             function init() {
                 scene.background = new THREE.Color(0x000F1A);
-
-                renderer.setSize(window.innerWidth, window.innerHeight);
-                //mainCanvas = renderer.domElement;
-                //c.appendChild(renderer.domElement);
+                renderer.setSize(window.innerWidth, window.innerHeight);             
                 canvas = renderer.domElement;
                 
-                fetch("world_map_detailed.json").then((response) => {
+                fetch("world_map_web_merc.json").then((response) => {
                     return response.json();
                 }).then((topology) => {
                     let features = topojson.feature(topology, topology.objects.world_map);
@@ -127,9 +87,7 @@
                         
                         scene.add(shape);
                         scene.add(line);
-                    }
-                    uniforms.resolution.value.x = window.innerWidth;
-                    uniforms.resolution.value.y = window.innerHeight;                    
+                    }               
                 });
 
                 fetch("covid_data.json").then((response) => {
@@ -138,18 +96,15 @@
                     covid_data = data;
 
                     for (const country of data){
-                        //if(country["Country/Region"] === "US"){
-                            //console.log(country);
+                        //if(country["Country/Region"] === "US"){                            
                             let covidData = new CovidData(country);
-                            //console.log(covidData);
+                            
+                            covidData.updateCircle(FIRST_DATA_DATE.toLocaleDateString("en", ({ month:"numeric", day:"numeric", year: "2-digit"})));
 
                             obj.push(covidData);
                             raycastObjs.push(covidData.mesh);
                             scene.add(covidData.mesh);
                         //}
-
-
-                        //console.log(country["Country/Region"])
                     }
                 });
 
@@ -160,9 +115,14 @@
                     },
                     start: FIRST_DATA_DATE.getTime(),
                     // step: 24 * 60 * 60 * 1000,
-                    format: wNumb({
-                        decimals: 0
-                    }),
+                    format: {
+                        to: function(value) {
+                            return new Date(value).toLocaleDateString("en", ({ month:"numeric", day:"numeric", year: "2-digit"}));
+                        },
+                        from: function(value) {
+                            return parseInt(value);
+                        }
+                    },
                     pips: {
                         mode: 'values', 
                         values: [FIRST_DATA_DATE.getTime(), 
@@ -173,25 +133,23 @@
                         density: 10,
                         format: {
                             to: function(value) {
-                                return new Date(value).toLocaleDateString("en", ({ month:"long", day:"numeric"}));
+                                return new Date(value).toLocaleDateString("en", ({ month:"numeric", day:"numeric"}));
                             }
                         }
                     }
                 }); 
 
-                slider.noUiSlider.on("update", (value) =>{
-                    //console.log(new Date(parseInt(value)));
-                    //console.log(new Date(this.get()));
-                    let dateSelected = new Date(parseInt(value));
+                let divName = document.querySelector(".country_name");
+                slider.noUiSlider.on("update", (value) =>{                    
+                    let dateSelected = new Date(value);
                     document.querySelector(".date").innerText = dateSelected.toLocaleDateString("en", ({ month:"long", day:"numeric", year: "numeric"}));
-                    
-                    selectedDate = dateSelected.toLocaleDateString("en", ({ month:"numeric", day:"numeric", year: "2-digit"}));
-                    //for(const data of obj) {
-                        //if(data.data["Country/Region"] === "US"){
-                            //data.updateScale(dateSelected.toLocaleDateString("en"))
-                        //}
-                        
-                    //}
+                    if(SELECTED && SELECTED.userData.data) {
+                        divName.innerText = SELECTED.userData.getInfoString(slider.noUiSlider.get());
+                    }
+
+                    for(const data of obj) {
+                        data.updateCircle(value)
+                    }
                 });
             }
 
@@ -200,18 +158,16 @@
                 requestAnimationFrame(animate);
                 let elapsedMilliseconds = Date.now() - startTime;
                 let elapsedSeconds = elapsedMilliseconds / 1000.;
-                uniforms.time.value = 60. * elapsedSeconds/10;
                 
                 camera.position.x = cameraUpdatePos.x;                
                 camera.position.y = cameraUpdatePos.y;
                 camera.position.z = cameraUpdatePos.z;
 
-                for(const data of obj) {
-                    //if(data.data["Country/Region"] === "US"){
-                        data.updateScale(selectedDate);
-                        data.updateCircle();
-                    //}                        
-                }
+                // for(const data of obj) {
+                //     //if(data.data["Country/Region"] === "US"){
+                //         data.updateCircle();
+                //     //}                        
+                // }
                 
                 renderer.render(scene, camera);
             }
@@ -221,7 +177,7 @@
                 let raycaster = new THREE.Raycaster();
                 let mouse = new THREE.Vector2();
                 let INTERSECTED = null;
-                let CLICKED = null;
+                
 
                 canvas.addEventListener("click", onDocumentClick, false);
                 function onDocumentClick(event) {                                                        
@@ -230,39 +186,35 @@
                     raycaster.setFromCamera(mouse, camera);
 
                     let intersects = raycaster.intersectObjects(raycastObjs);
+                    let divName = document.querySelector(".country_name");
 
-                    if(isShaderOn) {
-                        if (intersects.length > 0)
-                            document.querySelector(".country_name").innerText = intersects[0].object.userData.properties.NAME;
-                        else
-                            document.querySelector(".country_name").innerText = "";
-                    }
-                    else {
-                        if (intersects.length > 0) {
+                    if (intersects.length > 0) {
 
-                            if (CLICKED) {
-                                CLICKED.material.color.set(CLICKED.userData.shapeColor);
-                            }
-
-                            CLICKED = intersects[0].object;
-                            CLICKED.material.color.set(0x164B91);
-
-                            if(CLICKED.userData.properties) {
-                                document.querySelector(".country_name").innerText = CLICKED.userData.properties.NAME;
-                            }
-                            
-                            console.log(CLICKED.userData)
-
-                            } else {
-
-                            if (CLICKED) {
-                                CLICKED.material.color.set(CLICKED.userData.shapeColor);
-                                document.querySelector(".country_name").innerText = "";
-                            }
-
-                            CLICKED = null;
+                        if (SELECTED) {
+                            SELECTED.material.color.set(SELECTED.userData.shapeColor);
                         }
+
+                        SELECTED = intersects[0].object;
+                        SELECTED.material.color.set(0x164B91);
+
+                        if(SELECTED.userData.properties) {
+                            divName.innerText = SELECTED.userData.properties.NAME;
+                        } else if(SELECTED.userData.data) {
+                            divName.innerText = SELECTED.userData.getInfoString(slider.noUiSlider.get());
+                        }
+                        
+                        console.log(SELECTED.userData)
+
+                    } else {
+
+                        if (SELECTED) {
+                            SELECTED.material.color.set(SELECTED.userData.shapeColor);
+                            divName.innerText = "";
+                        }
+
+                        SELECTED = null;
                     }
+                    
                 }
 
 
@@ -301,10 +253,6 @@
                         mouseVec.multiplyScalar( distance )                    
 
 
-
-                    if(isShaderOn)
-                        return;
-
                     raycaster.setFromCamera(mouse, camera);
 
                     let divCoords = document.querySelector(".mouse_coordinates");
@@ -320,18 +268,18 @@
                     let intersects = raycaster.intersectObjects(raycastObjs);
 
                     if (intersects.length > 0) {
-                        if (INTERSECTED && INTERSECTED != CLICKED) {
+                        if (INTERSECTED && INTERSECTED != SELECTED) {                            
                             INTERSECTED.material.color.set(INTERSECTED.userData.shapeColor);
                         }
 
                         INTERSECTED = intersects[0].object;
 
-                        if (INTERSECTED != CLICKED) {
+                        if (INTERSECTED != SELECTED) {
                             INTERSECTED.material.color.setHex(0x666666);
                         }
 
                     } else {
-                        if (INTERSECTED && INTERSECTED != CLICKED) {
+                        if (INTERSECTED && INTERSECTED != SELECTED) {
                             INTERSECTED.material.color.set(INTERSECTED.userData.shapeColor);
                         }
                     } 
@@ -418,128 +366,17 @@
 
             function createGUI() {
                 let Test = {
-                    stagger: function (zPosition) {
-                        let staggerObjs = raycastObjs.map((obj) => {
-                            return obj.position
-                        });
-                        let staggerLines = lineObjs.map((obj) => {
-                            return obj.position
-                        });
-
-                        anime({targets: staggerObjs, z: zPosition, delay: anime.stagger(25), easing: "easeInQuad"})
-
-                        anime({targets: staggerLines, z: zPosition, delay: anime.stagger(25), easing: "easeOutQuad"})
+                    doNothing: function () {
+                        //Just to add a note in datGUI
                     },
-                    staggerIn: function () {
-                        this.stagger(0);
-                    },
-                    staggerOut: function () {
-                        this.stagger(300);
-                    },
-                    randomColors: function () {                        
-                        for(const shape of raycastObjs) {
-                            let color = Math.random() * 0xffffff;
-                            if(isShaderOn) 
-                                shape.material = new THREE.MeshBasicMaterial({color: color});
-                            shape.material.color.set(color); 
-                            shape.userData.shapeColor = color;
-                        }
-                        for(const line of lineObjs) {
-                            let color = Math.random() * 0xffffff;
-                            if(isShaderOn) 
-                                line.material = new THREE.LineBasicMaterial({color: color});
-
-                            line.material.color.set(color);                            
-                            line.userData.lineColor = color;
-                        }
-                        scene.background.set(Math.random() * 0xffffff);
-                        isShaderOn = false;
-                    },
-                    neonMap: function () {                        
-                        for(const shape of raycastObjs) {
-                            let color = 0x000000;
-                            if(isShaderOn) 
-                                shape.material = new THREE.MeshBasicMaterial({color: color});
-                            shape.material.color.set(color); 
-                            shape.userData.shapeColor = color;
-                        }
-                        for(const line of lineObjs) {
-                            let color = Math.random() * 0xffffff;
-                            if(isShaderOn) 
-                                line.material = new THREE.LineBasicMaterial({color: color});
-
-                            line.material.color.set(color);                            
-                            line.userData.lineColor = color;
-                        }
-                        scene.background.set(0x000000);
-                        isShaderOn = false;
-                    },
-                    turnShaderOn: function() {
-                        isShaderOn = true;
-                        for(const shape of raycastObjs) {                            
-                            let box = shape.geometry.computeBoundingBox();
-                            let center = new THREE.Vector3();
-                            shape.geometry.boundingBox.getCenter(center);
-                            let centerArray = []
-                            center.toArray(centerArray);
-                            shape.geometry.setAttribute( 'center', new THREE.Float32BufferAttribute( centerArray, 3 ) );
-
-                            shape.material = new THREE.ShaderMaterial({
-                                uniforms: uniforms,
-                                vertexShader: document.getElementById('vertexShader').textContent,
-                                fragmentShader: document.getElementById('stateShader').textContent
-                            });
-                        }
-
-                        for(const line of lineObjs) {                            
-                            line.material = new THREE.ShaderMaterial({
-                                uniforms: uniforms,
-                                vertexShader: document.getElementById('vertexShader').textContent,
-                                fragmentShader: document.getElementById('lineShader').textContent
-                            });
-                        }             
-                                    
-                    },
-                    backgroundColor: "#" + scene.background.getHexString(),
-                    shapeColor: "#000000",
-                    lineColor: "#ff0000"
-
                 }
                 let gui = new dat.GUI();
-                gui.width = 265;
-                let folder1 = gui.addFolder("Test Animations");
-                folder1.add(Test, "staggerIn").name("Stagger In");
-                folder1.add(Test, "staggerOut").name("Stagger Out");
-                
-                let folder2 = gui.addFolder("Color Settings");
-                folder2.addColor(Test, "backgroundColor")
-                    .name("Background Color")
-                    .onChange(() => {                        
-                        scene.background = new THREE.Color(Test.backgroundColor);
-                    });
-                folder2.addColor(Test, "shapeColor")
-                    .name("Shape Color")
-                    .onChange(() => {         
-                        if(isShaderOn) return;               
-                        for(const shape of raycastObjs) {
-                            shape.material.color.set(Test.shapeColor);                            
-                            shape.userData.shapeColor = Test.shapeColor;
-                        }
-                    });
-                folder2.addColor(Test, "lineColor")
-                    .name("Line Color")
-                    .onChange(() => {
-                        if(isShaderOn) return;                        
-                        for(const shape of lineObjs) {
-                            shape.material.color.set(Test.lineColor);                            
-                            shape.userData.lineColor = Test.lineColor;
-                        }
-                    });
-                folder2.add(Test, "randomColors").name("Random Colors");  
-                folder2.add(Test, "neonMap").name("Neon Map");                
-                folder2.add(Test, "turnShaderOn").name("Shader Test");
-                folder1.open();
-                folder2.open();
+                gui.width = 370;
+                gui.add(Test, "doNothing").name("Last Updated: April 20, 2020");
+                gui.close();
+                // let folder1 = gui.addFolder("Test Animations");
+                // folder1.add(Test, "staggerIn").name("Stagger In");
+                // folder1.add(Test, "staggerOut").name("Stagger Out");
             }
         </script>
     </body>
