@@ -96,7 +96,7 @@
 
 
             function init() {
-                scene.background = new THREE.Color(0x222222);
+                scene.background = new THREE.Color(0x000F1A);
 
                 renderer.setSize(window.innerWidth, window.innerHeight);
                 //mainCanvas = renderer.domElement;
@@ -147,7 +147,7 @@
                             //console.log("pos", pos);
                             mesh.position.x = pos.x;
                             mesh.position.y = pos.y;
-                            mesh.position.z = 1;
+                            mesh.position.z = .1;
                             //mesh.scale.set(10,10,1);
                             mesh.userData = country;
                             //console.log(mesh.position)
