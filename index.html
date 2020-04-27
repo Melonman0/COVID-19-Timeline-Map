@@ -6,13 +6,17 @@
         <title>Interactive Map</title>
         <script src="https://cdn.jsdelivr.net/npm/three@0.115.0/build/three.min.js" integrity="sha256-BKLpj/JlS+Fk4HENt+eiU5TifNz5GsSAl3KpXe80Lxc=" crossorigin="anonymous"></script>
         <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8/hammer.min.js" integrity="sha256-eVNjHw5UeU0jUqPPpZHAkU1z4U+QFBBY488WvueTm88=" crossorigin="anonymous"></script>
+        <script src="https://cdn.jsdelivr.net/npm/nouislider@14.2.0/distribute/nouislider.min.js" integrity="sha256-mJEhSPx2bNn3ZLSPbXX0xNS6gdmEYIhb7NXK0K5edjk=" crossorigin="anonymous"></script>        
+        <script src="https://cdn.jsdelivr.net/npm/wnumb@1.2.0/wNumb.min.js" integrity="sha256-DkHIFUKQfqQ7jA6GnWR9ZyB4Jb+j+dOuY12vnYq8xjk=" crossorigin="anonymous"></script>
         <script src="https://cdnjs.cloudflare.com/ajax/libs/topojson/3.0.2/topojson.min.js" integrity="sha256-tHoAPGoNdhIR28YHl9DWLzeRfdwigkH7OCBXMrHXhoM=" crossorigin="anonymous"></script>
         <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.0/anime.min.js" integrity="sha256-hBMojZuWKocCflyaG8T19KBq9OlTlK39CTxb8AUWKhY=" crossorigin="anonymous"></script>        
         <script src="https://cdnjs.cloudflare.com/ajax/libs/dat-gui/0.7.7/dat.gui.min.js" integrity="sha256-8IvN8DiAvwO7J3WLqoRDg2/XfkOxcB0urCTU4x0kBOM=" crossorigin="anonymous"></script>
         <script src="https://cdn.jsdelivr.net/npm/proj4@2.6.1/dist/proj4-src.min.js"></script>
         <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@500&display=swap" rel="stylesheet">
+        <link href="https://cdn.jsdelivr.net/npm/nouislider@14.2.0/distribute/nouislider.min.css" rel="stylesheet">
         <link href="main.css" rel="stylesheet">
         <script src="Country.js"></script>
+        <script src="CovidData.js"></script>
         <script id="vertexShader" type="x-shader/x-vertex">     
             attribute vec3 center;   
             varying vec4 v_position;
@@ -53,8 +57,10 @@
     <body>        
         <canvas id="mainCanvas"></canvas>
         <div class="overlay country_name"></div>
+        <div class="overlay date"></div>
         
-        <input type="range" id="dateSlider" value="0" class="overlay slider">
+        <!-- <input type="range" id="dateSlider" value="0" class="overlay slider"> -->
+        <div id="dateSlider" class="overlay slider"></div>
         <div class="overlay last_upadted">Last Updated: April 20, 2020</div>
         <div class="overlay mouse_coordinates" style="display: none;"></div>
 
@@ -150,6 +156,38 @@
 
                         //console.log(country["Country/Region"])
                     }
+                });
+
+                noUiSlider.create(slider, {
+                    range: {
+                        min: FIRST_DATA_DATE.getTime(),
+                        max: LAST_DATA_DATE.getTime()
+                    },
+                    start: FIRST_DATA_DATE.getTime(),
+                    step: 24 * 60 * 60 * 1000,
+                    format: wNumb({
+                        decimals: 0
+                    }),
+                    pips: {
+                        mode: 'values', 
+                        values: [FIRST_DATA_DATE.getTime(), 
+                            new Date("2/1/2020").getTime(),
+                            new Date("3/1/2020").getTime(),
+                            new Date("4/1/2020").getTime(),
+                            LAST_DATA_DATE.getTime()],
+                        density: 10,
+                        format: {
+                            to: function(value) {
+                                return new Date(value).toLocaleDateString("en", ({ month:"long", day:"numeric"}));
+                            }
+                        }
+                    }
+                }); 
+
+                slider.noUiSlider.on("update", (value) =>{
+                    //console.log(new Date(parseInt(value)));
+                    //console.log(new Date(this.get()));
+                    document.querySelector(".date").innerText = new Date(parseInt(value)).toLocaleDateString("en", ({ month:"long", day:"numeric", year: "numeric"}));
                 });
             }
 
