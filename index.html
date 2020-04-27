@@ -137,8 +137,8 @@
 
                     for (const country of data){
                         //if(country["Country/Region"] === "US"){
-                            const geometry = new THREE.BoxGeometry(.5,.5,.5);
-                            let mat = new THREE.MeshBasicMaterial({color: 0x0000FF});    
+                            const geometry = new THREE.CircleGeometry(.5, 32);
+                            let mat = new THREE.MeshBasicMaterial({color: 0xFF0000, transparent: true, opacity: 0.4 });    
                             let mesh = new THREE.Mesh( geometry, mat ) ;
 
                             //console.log(country)
@@ -147,6 +147,8 @@
                             //console.log("pos", pos);
                             mesh.position.x = pos.x;
                             mesh.position.y = pos.y;
+                            mesh.position.z = 1;
+                            //mesh.scale.set(10,10,1);
                             mesh.userData = country;
                             //console.log(mesh.position)
                             raycastObjs.push(mesh);
