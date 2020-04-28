@@ -16,10 +16,11 @@
         <link href="https://cdn.jsdelivr.net/npm/nouislider@14.2.0/distribute/nouislider.min.css" rel="stylesheet">
         <link href="main.css" rel="stylesheet">
         <script src="Country.js"></script>
-        <script src="CovidData.js"></script>        
+        <script src="CovidCountryData.js"></script>        
     </head>
     <body>        
         <canvas id="mainCanvas"></canvas>
+        <div class="overlay total_confirmed"></div>
         <div class="overlay country_name"></div>
         <div class="overlay bottomGUI">
             <div class="date"></div>        
@@ -49,9 +50,12 @@
             
             let raycastObjs = [];
             let lineObjs = [];
-            let covid_data = {};
-            let obj = [];
+            let covidJSON = {};
+            let covidCountryList = [];
             let SELECTED = null;
+            let isPlaying = false;
+            let testdate = "1/22/20";
+            let clock = new THREE.Clock();
 
             
             init();
@@ -61,6 +65,7 @@
 
 
             function init() {
+                clock.start();
                 scene.background = new THREE.Color(0x000F1A);
                 renderer.setSize(window.innerWidth, window.innerHeight);             
                 canvas = renderer.domElement;
@@ -92,19 +97,17 @@
 
                 fetch("covid_data.json").then((response) => {
                     return response.json();
-                }).then((data) => {
-                    covid_data = data;
+                }).then((json) => {
+                    covidJSON = json;
 
-                    for (const country of data){
-                        //if(country["Country/Region"] === "US"){                            
-                            let covidData = new CovidData(country);
-                            
-                            covidData.updateCircle(FIRST_DATA_DATE.toLocaleDateString("en", ({ month:"numeric", day:"numeric", year: "2-digit"})));
+                    for (const country of covidJSON){                            
+                        let covidData = new CovidCountryData(country);
+                        
+                        covidData.updateConfirmed(FIRST_DATA_DATE.toLocaleDateString("en", ({ month:"numeric", day:"numeric", year: "2-digit"})));
 
-                            obj.push(covidData);
-                            raycastObjs.push(covidData.mesh);
-                            scene.add(covidData.mesh);
-                        //}
+                        covidCountryList.push(covidData);
+                        raycastObjs.push(covidData.mesh);
+                        scene.add(covidData.mesh);                        
                     }
                 });
 
@@ -147,13 +150,15 @@
                         divName.innerText = SELECTED.userData.getInfoString(slider.noUiSlider.get());
                     }
 
-                    for(const data of obj) {
-                        data.updateCircle(value)
+                    testdate = slider.noUiSlider.get();
+
+                    for(const data of covidCountryList) {
+                         data.updateConfirmed(value)
                     }
                 });
             }
 
-
+            
             function animate() {
                 requestAnimationFrame(animate);
                 let elapsedMilliseconds = Date.now() - startTime;
@@ -163,12 +168,24 @@
                 camera.position.y = cameraUpdatePos.y;
                 camera.position.z = cameraUpdatePos.z;
 
-                // for(const data of obj) {
-                //     //if(data.data["Country/Region"] === "US"){
-                //         data.updateCircle();
-                //     //}                        
-                // }
-                
+                let delta = clock.getDelta();
+                for(const data of covidCountryList) {
+                    //if(data.data["Country/Region"] === "US"){
+                        data.renderUpdate(delta);
+                    //}                        
+                }
+                if(isPlaying) {
+                    if( elapsedMilliseconds >= 100 ) {
+                        var value = new Date(slider.noUiSlider.get());
+                        value.setDate(value.getDate() + 1);
+                        slider.noUiSlider.set(value.getTime());
+                        startTime = Date.now();
+
+                        if(value.getTime() >= LAST_DATA_DATE.getTime()) {
+                            isPlaying = false;
+                        }
+                    }
+                }
                 renderer.render(scene, camera);
             }
 
@@ -365,19 +382,22 @@
             }
 
             function createGUI() {
-                let Test = {
+                let Config = {
                     doNothing: function () {
                         //Just to add a note in datGUI
                     },
+
                 }
                 let gui = new dat.GUI();
-                gui.width = 370;
-                gui.add(Test, "doNothing").name("Last Updated: April 20, 2020");
+                gui.width = 370;                
+                gui.add(CovidCountryData, "useLinearScale").name("Use Linear Scaling");
+                gui.add(Config, "doNothing").name("Last Updated: April 20, 2020");
                 gui.close();
                 // let folder1 = gui.addFolder("Test Animations");
                 // folder1.add(Test, "staggerIn").name("Stagger In");
                 // folder1.add(Test, "staggerOut").name("Stagger Out");
             }
+            
         </script>
     </body>
 </html>

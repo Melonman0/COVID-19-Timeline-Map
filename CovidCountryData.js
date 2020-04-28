@@ -1,16 +1,19 @@
 const FIRST_DATA_DATE = new Date("1/22/20");
 const LAST_DATA_DATE = new Date("4/19/20");
 
-let CovidData = function(countryData) {    
+let CovidCountryData = function(countryData) {    
     this.shapeColor = 0xFF0000;
-    this.mesh = CovidData.initDataCircle(countryData);  
+    this.mesh = CovidCountryData.initDataCircle(countryData);  
     this.mesh.userData = this;
 
     this.data = countryData;
-    this.currentCircleScale = 1;    
+    this.currentCircleScale = 0;
+    this.newCircleScale = 1;   
+    this.lerpNum = 0; 
 }
 
-CovidData.initDataCircle = function(data) {
+CovidCountryData.useLinearScale = false;
+CovidCountryData.initDataCircle = function(data) {
     let geometry = new THREE.CircleGeometry(.5, 32);
     let mat = new THREE.MeshBasicMaterial({color: 0xFF0000, transparent: true, opacity: 0.4 });    
     let mesh = new THREE.Mesh( geometry, mat ) ;
@@ -24,7 +27,7 @@ CovidData.initDataCircle = function(data) {
     return mesh;
 }
 
-CovidData.prototype = { 
+CovidCountryData.prototype = { 
     getConfirmed: function(dateString) {
         return numberformatter.to(this.data[dateString]);
     },
@@ -32,11 +35,20 @@ CovidData.prototype = {
         let provState = (this.data["Province/State"]) ? `, ${this.data["Province/State"]}` : "";
         return `${this.data["Country/Region"]}${provState} - ${this.getConfirmed(dateString)}`;
     },
-    updateCircle: function(dateString) {
+    updateConfirmed(dateString) {
         let confirmed = this.data[dateString];
+        if(CovidCountryData.useLinearScale) {
+            this.newCircleScale = confirmed/10000;
+        } else {
+            this.newCircleScale = (Math.log(confirmed+1)/Math.log(4));
+        }
+        
+        this.lerpNum = 0;         
+    },
+    renderUpdate: function(delta) {
+        this.lerpNum += delta;
+        this.currentCircleScale = THREE.MathUtils.lerp(this.currentCircleScale, this.newCircleScale, THREE.MathUtils.clamp(this.lerpNum * 1.5, 0, 1)); 
 
-        this.currentCircleScale = Math.log(confirmed)/Math.log(3);
-        //this.currentCircleScale = confirmed/10000;
-        this.mesh.scale.set(this.currentCircleScale, this.currentCircleScale, 1);                
+        this.mesh.scale.set(this.currentCircleScale, this.currentCircleScale, 1);         
     }    
 }
