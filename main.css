@@ -16,24 +16,17 @@ canvas {
     user-select: none;
 }
 .country_name {    
-    bottom: 22%;
+    bottom: 100px;
     left: 5%;
     font-size: 1.2rem;
     color: white;
 }
 
 .date {    
-    font-size: 15px;
+    font-size: 1rem;
     color: white;
     margin-bottom: 5px;
     text-align: center;
-}
-
-.last_upadted {
-    font-size: 1rem;
-    color: white;
-    bottom: 1%;
-    right: 1%;
 }
 
 .mouse_coordinates {
