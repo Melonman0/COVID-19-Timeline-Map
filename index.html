@@ -33,13 +33,7 @@
             let canvas = document.querySelector("#mainCanvas");
             let scene = new THREE.Scene();            
             let camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);             
-            let renderer = new THREE.WebGLRenderer({canvas});
-            let uniforms = {
-                        time: { type: "f", value: .1 },
-                        resolution: { type: "v2", value: new THREE.Vector2() },
-                        currentPos: { type: "v3", value: new THREE.Vector3() }
-                    };      
-            let startTime = Date.now();
+            let renderer = new THREE.WebGLRenderer({canvas});  
             let cameraUpdatePos = new THREE.Vector3(0, 45, 200);
             let numberformatter = wNumb({ thousand: ',' });
             
@@ -56,6 +50,7 @@
             let isPlaying = false;
             let testdate = "1/22/20";
             let clock = new THREE.Clock();
+            let startTime = clock.getElapsedTime();
 
             
             init();
@@ -103,7 +98,7 @@
                     for (const country of covidJSON){                            
                         let covidData = new CovidCountryData(country);
                         
-                        covidData.updateConfirmed(FIRST_DATA_DATE.toLocaleDateString("en", ({ month:"numeric", day:"numeric", year: "2-digit"})));
+                        covidData.setConfirmed(FIRST_DATA_DATE.toLocaleDateString("en", ({ month:"numeric", day:"numeric", year: "2-digit"})));
 
                         covidCountryList.push(covidData);
                         raycastObjs.push(covidData.mesh);
@@ -112,12 +107,12 @@
                 });
 
                 noUiSlider.create(slider, {
+                    animate: false,
                     range: {
                         min: FIRST_DATA_DATE.getTime(),
                         max: LAST_DATA_DATE.getTime()
                     },
                     start: FIRST_DATA_DATE.getTime(),
-                    // step: 24 * 60 * 60 * 1000,
                     format: {
                         to: function(value) {
                             return new Date(value).toLocaleDateString("en", ({ month:"numeric", day:"numeric", year: "2-digit"}));
@@ -133,27 +128,12 @@
                             new Date("3/1/2020").getTime(),
                             new Date("4/1/2020").getTime(),
                             LAST_DATA_DATE.getTime()],
-                        density: 10,
+                        density: 8,
                         format: {
                             to: function(value) {
                                 return new Date(value).toLocaleDateString("en", ({ month:"numeric", day:"numeric"}));
                             }
                         }
-                    }
-                }); 
-
-                let divName = document.querySelector(".country_name");
-                slider.noUiSlider.on("update", (value) =>{                    
-                    let dateSelected = new Date(value);
-                    document.querySelector(".date").innerText = dateSelected.toLocaleDateString("en", ({ month:"long", day:"numeric", year: "numeric"}));
-                    if(SELECTED && SELECTED.userData.data) {
-                        divName.innerText = SELECTED.userData.getInfoString(slider.noUiSlider.get());
-                    }
-
-                    testdate = slider.noUiSlider.get();
-
-                    for(const data of covidCountryList) {
-                         data.updateConfirmed(value)
                     }
                 });
             }
@@ -161,31 +141,30 @@
             
             function animate() {
                 requestAnimationFrame(animate);
-                let elapsedMilliseconds = Date.now() - startTime;
-                let elapsedSeconds = elapsedMilliseconds / 1000.;
+                let delta = clock.getDelta();
+                startTime += delta;                
                 
                 camera.position.x = cameraUpdatePos.x;                
                 camera.position.y = cameraUpdatePos.y;
                 camera.position.z = cameraUpdatePos.z;
-
-                let delta = clock.getDelta();
+                
                 for(const data of covidCountryList) {
-                    //if(data.data["Country/Region"] === "US"){
-                        data.renderUpdate(delta);
-                    //}                        
+                    data.renderUpdate(delta);                                            
                 }
+
                 if(isPlaying) {
-                    if( elapsedMilliseconds >= 100 ) {
+                    if( startTime >= .200 ) {
                         var value = new Date(slider.noUiSlider.get());
                         value.setDate(value.getDate() + 1);
                         slider.noUiSlider.set(value.getTime());
-                        startTime = Date.now();
+                        startTime = 0;
 
                         if(value.getTime() >= LAST_DATA_DATE.getTime()) {
                             isPlaying = false;
                         }
                     }
                 }
+                
                 renderer.render(scene, camera);
             }
 
@@ -264,11 +243,10 @@
                             0.5 
                         );
 
-                        mouseVec.unproject( camera );
-                        mouseVec.sub(camera.position).normalize();                        
-                        let distance = - camera.position.z / mouseVec.z;
-                        mouseVec.multiplyScalar( distance )                    
-
+                    mouseVec.unproject( camera );
+                    mouseVec.sub(camera.position).normalize();                        
+                    let distance = - camera.position.z / mouseVec.z;
+                    mouseVec.multiplyScalar( distance );
 
                     raycaster.setFromCamera(mouse, camera);
 
@@ -375,10 +353,21 @@
                     renderer.setSize(window.innerWidth, window.innerHeight);
                 }
 
-                slider.addEventListener("mousemove", onSliderMove, false);
-                function onSliderMove(event) {
-                    
-                }
+                let divName = document.querySelector(".country_name");
+                slider.noUiSlider.on("update", (value) => {                    
+                    let dateSelected = new Date(value);
+                    document.querySelector(".date").innerText = dateSelected.toLocaleDateString("en", ({ month:"long", day:"numeric", year: "numeric"}));
+                    if(SELECTED && SELECTED.userData.data) {
+                        divName.innerText = SELECTED.userData.getInfoString(slider.noUiSlider.get());
+                    }
+
+                    for(const data of covidCountryList) {
+                         data.setConfirmed(value)
+                    }
+                });
+                slider.noUiSlider.on("start", (value) => {
+                    isPlaying = false;
+                });
             }
 
             function createGUI() {
@@ -386,16 +375,17 @@
                     doNothing: function () {
                         //Just to add a note in datGUI
                     },
-
                 }
                 let gui = new dat.GUI();
                 gui.width = 370;                
-                gui.add(CovidCountryData, "useLinearScale").name("Use Linear Scaling");
+                gui.add(CovidCountryData, "useLinearScale").name("Use Linear Scaling").onChange(() => {
+                    let date = slider.noUiSlider.get();
+                    for(const data of covidCountryList) {
+                         data.setConfirmed(date);
+                    }
+                });
                 gui.add(Config, "doNothing").name("Last Updated: April 20, 2020");
                 gui.close();
-                // let folder1 = gui.addFolder("Test Animations");
-                // folder1.add(Test, "staggerIn").name("Stagger In");
-                // folder1.add(Test, "staggerOut").name("Stagger Out");
             }
             
         </script>

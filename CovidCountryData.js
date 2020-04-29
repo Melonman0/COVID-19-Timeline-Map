@@ -33,10 +33,13 @@ CovidCountryData.prototype = {
     },
     getInfoString(dateString) {
         let provState = (this.data["Province/State"]) ? `, ${this.data["Province/State"]}` : "";
-        return `${this.data["Country/Region"]}${provState} - ${this.getConfirmed(dateString)}`;
+        return `${this.data["Country/Region"]}${provState} - ${this.getConfirmed(dateString)} Confirmed`;
     },
-    updateConfirmed(dateString) {
+    
+    //Method to update what data circle should scale to
+    setConfirmed(dateString) {
         let confirmed = this.data[dateString];
+        
         if(CovidCountryData.useLinearScale) {
             this.newCircleScale = confirmed/10000;
         } else {
@@ -45,9 +48,11 @@ CovidCountryData.prototype = {
         
         this.lerpNum = 0;         
     },
+    
+    //Method to animate tween
     renderUpdate: function(delta) {
         this.lerpNum += delta;
-        this.currentCircleScale = THREE.MathUtils.lerp(this.currentCircleScale, this.newCircleScale, THREE.MathUtils.clamp(this.lerpNum * 1.5, 0, 1)); 
+        this.currentCircleScale = THREE.MathUtils.lerp(this.currentCircleScale, this.newCircleScale, THREE.MathUtils.clamp(this.lerpNum * 1.1, 0, 1)); 
 
         this.mesh.scale.set(this.currentCircleScale, this.currentCircleScale, 1);         
     }    
