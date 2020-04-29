@@ -202,7 +202,7 @@
                         if(SELECTED.userData.properties) {
                             divName.innerText = SELECTED.userData.properties.NAME;
                         } else if(SELECTED.userData.data) {
-                            divName.innerText = SELECTED.userData.getInfoString(slider.noUiSlider.get());
+                            divName.innerText = SELECTED.userData.getInfoString(slider.noUiSlider.get(), numberformatter);
                         }
                         
                         console.log(SELECTED.userData)
@@ -367,7 +367,7 @@
                     document.querySelector(".date").innerText = dateSelected.toLocaleDateString("en", ({ month:"long", day:"numeric", year: "numeric"}));                    
                     document.querySelector(".total_confirmed").innerText = `Total Confirmed: ${totalConfirmed}`;
                     if(SELECTED && SELECTED.userData.data) {
-                        divName.innerText = SELECTED.userData.getInfoString(slider.noUiSlider.get());
+                        divName.innerText = SELECTED.userData.getInfoString(slider.noUiSlider.get(), numberformatter);
                     }
 
                     for(const data of covidCountryList) {

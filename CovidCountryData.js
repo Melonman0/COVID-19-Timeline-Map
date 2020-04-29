@@ -35,12 +35,12 @@ CovidCountryData.getTotalConfirmedByDate = function(date, covidCountryList, wfom
 
 
 CovidCountryData.prototype = { 
-    getConfirmed: function(dateString, wfomatter) {
-        return wfomatter.to(this.data[dateString]);
+    getConfirmed: function(dateString) {
+        return this.data[dateString];
     },
-    getInfoString(dateString) {
+    getInfoString(dateString, wfomatter) {
         let provState = (this.data["Province/State"]) ? `, ${this.data["Province/State"]}` : "";
-        return `${this.data["Country/Region"]}${provState} - ${this.getConfirmed(dateString)} Confirmed`;
+        return `${this.data["Country/Region"]}${provState} - ${wfomatter.to(this.getConfirmed(dateString))} Confirmed`;
     },
     
     //Method to update what data circle should scale to
