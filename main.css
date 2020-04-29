@@ -3,7 +3,8 @@ body {
     height: 100%;
     touch-action: none;
     font-family: 'Roboto', sans-serif;
-    text-shadow: -1px 1px 0 #000, 1px 1px 0 #000, 1px -1px 0 #000, -1px -1px 0 #000;
+    text-shadow: -1px 1px 0 #000, 1px 1px 0 #000, 1px -1px 0 #000, -1px -1px 0 #000;    
+    color: white;
 }
 canvas {
     width: 100%;
@@ -15,16 +16,14 @@ canvas {
     position: fixed;
     user-select: none;
 }
-.country_name {    
-    bottom: 100px;
-    left: 5%;
-    font-size: 1.2rem;
-    color: white;
+.total_confirmed {
+    font-size: 1.7rem;
 }
-
+.country_name {
+    font-size: 1.2rem;
+}
 .date {    
     font-size: 1rem;
-    color: white;
     margin-bottom: 5px;
     text-align: center;
 }

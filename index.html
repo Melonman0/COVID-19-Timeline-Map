@@ -14,15 +14,17 @@
         <script src="https://cdn.jsdelivr.net/npm/proj4@2.6.1/dist/proj4-src.min.js"></script>
         <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@500&display=swap" rel="stylesheet">
         <link href="https://cdn.jsdelivr.net/npm/nouislider@14.2.0/distribute/nouislider.min.css" rel="stylesheet">
+        <script src="https://cdn.jsdelivr.net/npm/feather-icons@4.28.0/dist/feather.min.js" integrity="sha256-XfzdiC+S1keia+s9l07y7ye5a874sBq67zK4u7LTjvk=" crossorigin="anonymous"></script>
         <link href="main.css" rel="stylesheet">
         <script src="Country.js"></script>
         <script src="CovidCountryData.js"></script>        
     </head>
     <body>        
         <canvas id="mainCanvas"></canvas>
-        <div class="overlay total_confirmed"></div>
-        <div class="overlay country_name"></div>
+        
         <div class="overlay bottomGUI">
+            <div class="country_name"></div>
+            <div class="total_confirmed"></div>
             <div class="date"></div>        
             <div id="dateSlider" class="slider"></div>
         </div>        
@@ -36,7 +38,9 @@
             let renderer = new THREE.WebGLRenderer({canvas});  
             let cameraUpdatePos = new THREE.Vector3(0, 45, 200);
             let numberformatter = wNumb({ thousand: ',' });
+            let shortDateFormat = { month:"numeric", day:"numeric", year: "2-digit"};
             
+            //Used with proj4.js to convert longitudes and latitudes to my custom map format
             let firstProjection = "+proj=merc +a=55 +b=55 +lat_ts=0.0 +lon_0=0.0 +x_0=0.0 +y_0=0 +k=1.0 +units=m +nadgrids=@null +wktext  +no_defs";
             let secondProjection = "+proj=longlat +a=55 +b=55 +lat_ts=0.0 +lon_0=0.0 +x_0=0.0 +y_0=0 +k=1.0 +units=m +nadgrids=@null +wktext  +no_defs";
 
@@ -48,7 +52,6 @@
             let covidCountryList = [];
             let SELECTED = null;
             let isPlaying = false;
-            let testdate = "1/22/20";
             let clock = new THREE.Clock();
             let startTime = clock.getElapsedTime();
 
@@ -98,12 +101,15 @@
                     for (const country of covidJSON){                            
                         let covidData = new CovidCountryData(country);
                         
-                        covidData.setConfirmed(FIRST_DATA_DATE.toLocaleDateString("en", ({ month:"numeric", day:"numeric", year: "2-digit"})));
+                        covidData.setConfirmed(FIRST_DATA_DATE.toLocaleDateString("en", shortDateFormat));
 
                         covidCountryList.push(covidData);
                         raycastObjs.push(covidData.mesh);
-                        scene.add(covidData.mesh);                        
+                        scene.add(covidData.mesh);                                            
                     }
+                    
+                    let totalConfirmed = CovidCountryData.getTotalConfirmedByDate(FIRST_DATA_DATE.toLocaleDateString("en", shortDateFormat), covidCountryList, numberformatter);
+                    document.querySelector(".total_confirmed").innerText = `Total Confirmed: ${totalConfirmed}`;
                 });
 
                 noUiSlider.create(slider, {
@@ -115,7 +121,7 @@
                     start: FIRST_DATA_DATE.getTime(),
                     format: {
                         to: function(value) {
-                            return new Date(value).toLocaleDateString("en", ({ month:"numeric", day:"numeric", year: "2-digit"}));
+                            return new Date(value).toLocaleDateString("en", shortDateFormat);
                         },
                         from: function(value) {
                             return parseInt(value);
@@ -341,7 +347,7 @@
                         delta.subVectors(startPos, currentPos);                                                 
 
                         cameraUpdatePos.x = THREE.MathUtils.clamp(delta.x, -200, 200);
-                        cameraUpdatePos.y = THREE.MathUtils.clamp(delta.y, -50, 140); //Y clamp is strange because Antartica has been removed, but the coordinates stated the same
+                        cameraUpdatePos.y = THREE.MathUtils.clamp(delta.y, -50, 140); //Y clamp is strange because Antartica has been removed, but the coordinates stayed the same
                     }
                 });
 
@@ -356,7 +362,10 @@
                 let divName = document.querySelector(".country_name");
                 slider.noUiSlider.on("update", (value) => {                    
                     let dateSelected = new Date(value);
-                    document.querySelector(".date").innerText = dateSelected.toLocaleDateString("en", ({ month:"long", day:"numeric", year: "numeric"}));
+                    let totalConfirmed = CovidCountryData.getTotalConfirmedByDate(value, covidCountryList, numberformatter);
+
+                    document.querySelector(".date").innerText = dateSelected.toLocaleDateString("en", ({ month:"long", day:"numeric", year: "numeric"}));                    
+                    document.querySelector(".total_confirmed").innerText = `Total Confirmed: ${totalConfirmed}`;
                     if(SELECTED && SELECTED.userData.data) {
                         divName.innerText = SELECTED.userData.getInfoString(slider.noUiSlider.get());
                     }
@@ -365,6 +374,7 @@
                          data.setConfirmed(value)
                     }
                 });
+
                 slider.noUiSlider.on("start", (value) => {
                     isPlaying = false;
                 });

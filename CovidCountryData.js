@@ -26,10 +26,17 @@ CovidCountryData.initDataCircle = function(data) {
     
     return mesh;
 }
+CovidCountryData.getTotalConfirmedByDate = function(date, covidCountryList, wfomatter) {
+    if(covidCountryList.length === 0)
+        return "Calculating..."
+
+    return wfomatter.to(covidCountryList.reduce((a, b) => a += parseInt(b.data[date]), 0)); 
+}
+
 
 CovidCountryData.prototype = { 
-    getConfirmed: function(dateString) {
-        return numberformatter.to(this.data[dateString]);
+    getConfirmed: function(dateString, wfomatter) {
+        return wfomatter.to(this.data[dateString]);
     },
     getInfoString(dateString) {
         let provState = (this.data["Province/State"]) ? `, ${this.data["Province/State"]}` : "";
