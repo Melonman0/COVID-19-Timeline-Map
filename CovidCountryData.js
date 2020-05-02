@@ -59,7 +59,7 @@ CovidCountryData.prototype = {
     //Method to animate tween
     renderUpdate: function(delta) {
         this.lerpNum += delta;
-        this.currentCircleScale = THREE.MathUtils.lerp(this.currentCircleScale, this.newCircleScale, THREE.MathUtils.clamp(this.lerpNum * 1.1, 0, 1)); 
+        this.currentCircleScale = THREE.MathUtils.lerp(this.currentCircleScale, this.newCircleScale, THREE.MathUtils.clamp(this.lerpNum * 1.5, 0, 1)); 
 
         this.mesh.scale.set(this.currentCircleScale, this.currentCircleScale, 1);         
     }    
