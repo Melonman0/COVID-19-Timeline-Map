@@ -1,5 +1,5 @@
 const FIRST_DATA_DATE = new Date("1/22/20");
-const LAST_DATA_DATE = new Date("4/19/20");
+const LAST_DATA_DATE = new Date("5/1/20");
 
 let CovidCountryData = function(countryData) {    
     this.shapeColor = 0xFF0000;
