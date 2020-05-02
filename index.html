@@ -33,6 +33,25 @@
             <div id="dateSlider" class="slider"></div>
         </div>        
         <div class="overlay mouse_coordinates" style="display: none;"></div>
+        <dialog id="favDialog">
+        <form method="dialog">
+            <div class="dialog_header">
+                <h1>Interactive map/timeline of the COVID-19 virus</h1>            
+                <i id="btnClose" data-feather="x"></i>
+            </div>
+            
+            <hr>
+            Data provided by <a href="https://github.com/CSSEGISandData" target="_blank">CSSE at Johns Hopkins University</a>
+            <br />
+            <br />
+            <br />
+            <span class="last_updated">Data Updated: April 20, 2020</span>
+            <br />
+            <br />
+            <br />
+            <a class="github" href="https://github.com/Melonman0/COVID-19-Timeline-Map" target="_blank"><i data-feather="github"></i></a>
+        </form>
+        </dialog>
 
         <script>
             let slider = document.querySelector("#dateSlider");
@@ -401,13 +420,21 @@
                     btnPlay.style.display = "inline";
                     btnStop.style.display = "none";
                 }
+
             }
 
             function createGUI() {
-                let Config = {
-                    doNothing: function () {
-                        //Just to add a note in datGUI
-                    },
+                let Config = {                    
+                    ShowAbout: function () {
+                        let favDialog = document.getElementById("favDialog");
+                        let btnClose = document.getElementById("btnClose"); 
+                        favDialog.showModal();                        
+                        
+                        btnClose.addEventListener("click", function close() {
+                            favDialog.close();
+                            btnClose.removeEventListener("click", close);
+                        });
+                    }, 
                 }
                 let gui = new dat.GUI();
                 gui.width = 370;                
@@ -417,7 +444,7 @@
                          data.setConfirmed(date);
                     }
                 });
-                gui.add(Config, "doNothing").name("Last Updated: April 20, 2020");
+                gui.add(Config, "ShowAbout").name("About");
                 gui.close();
             }
             
