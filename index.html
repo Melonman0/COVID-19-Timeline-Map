@@ -437,7 +437,7 @@
                     }, 
                 }
                 let gui = new dat.GUI();
-                gui.width = 370;                
+                gui.width = 260;                
                 gui.add(CovidCountryData, "useLinearScale").name("Use Linear Scaling").onChange(() => {
                     let date = slider.noUiSlider.get();
                     for(const data of covidCountryList) {
