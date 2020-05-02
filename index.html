@@ -25,6 +25,10 @@
         <div class="overlay bottomGUI">
             <div class="country_name"></div>
             <div class="total_confirmed"></div>
+            <div class="play_controls">
+                <i id="btnPlay" data-feather="play-circle"></i>
+                <i id="btnStop" data-feather="pause-circle" style="display: none;"></i>
+            </div>
             <div class="date"></div>        
             <div id="dateSlider" class="slider"></div>
         </div>        
@@ -64,6 +68,7 @@
 
             function init() {
                 clock.start();
+                feather.replace();
                 scene.background = new THREE.Color(0x000F1A);
                 renderer.setSize(window.innerWidth, window.innerHeight);             
                 canvas = renderer.domElement;
@@ -167,6 +172,8 @@
 
                         if(value.getTime() >= LAST_DATA_DATE.getTime()) {
                             isPlaying = false;
+                            document.querySelector("#btnPlay").style.display = "inline";
+                            document.querySelector("#btnStop").style.display = "none";
                         }
                     }
                 }
@@ -378,6 +385,22 @@
                 slider.noUiSlider.on("start", (value) => {
                     isPlaying = false;
                 });
+
+                let btnPlay = document.querySelector("#btnPlay");
+                let btnStop = document.querySelector("#btnStop");
+                btnPlay.addEventListener("click", btnPlayClick, false);
+                function btnPlayClick() {
+                    isPlaying = true;
+                    btnPlay.style.display = "none";
+                    btnStop.style.display = "inline";
+                }
+
+                btnStop.addEventListener("click", btnStopClick, false)
+                function btnStopClick() {
+                    isPlaying = false;
+                    btnPlay.style.display = "inline";
+                    btnStop.style.display = "none";
+                }
             }
 
             function createGUI() {
