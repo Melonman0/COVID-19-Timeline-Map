@@ -403,6 +403,8 @@
 
                 slider.noUiSlider.on("start", (value) => {
                     isPlaying = false;
+                    document.querySelector("#btnPlay").style.display = "inline";
+                    document.querySelector("#btnStop").style.display = "none";
                 });
 
                 let btnPlay = document.querySelector("#btnPlay");
